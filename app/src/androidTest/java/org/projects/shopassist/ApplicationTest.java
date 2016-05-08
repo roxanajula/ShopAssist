@@ -1,4 +1,4 @@
-package org.projects.shoppinglist;
+package org.projects.shopassist;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;

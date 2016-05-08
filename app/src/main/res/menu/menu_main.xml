@@ -1,10 +1,18 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
       xmlns:app="http://schemas.android.com/apk/res-auto"
       xmlns:tools="http://schemas.android.com/tools"
-      tools:context="org.projects.shoppinglist.MainActivity">
+      tools:context="org.projects.shopassist.MainActivity">
+
     <item
-        android:id="@+id/action_settings"
-        android:orderInCategory="100"
-        android:title="@string/action_settings"
-        app:showAsAction="never"/>
+        android:id="@+id/clearList"
+        app:showAsAction="never"
+        android:orderInCategory="1"
+        android:title="@string/clear_list"/>
+
+    <item
+        android:id="@+id/actionSettings"
+        app:showAsAction="never"
+        android:orderInCategory="2"
+        android:title="@string/action_settings"/>
+
 </menu>
