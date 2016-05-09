@@ -18,8 +18,10 @@
 
     <!-- Custom strings -->
     <string name="clear_list">"Clear List"</string>
-    <string name="item_hint">"Add an item"</string>
+    <string name="item_hint">" + Add an item"</string>
     <string name="add_button">"Add"</string>
+    <string name="action_share">Share</string>
+    <string name="delete_checked">"Delete Checked"</string>
     <string-array name="quantity_array">
         <item>1</item>
         <item>2</item>

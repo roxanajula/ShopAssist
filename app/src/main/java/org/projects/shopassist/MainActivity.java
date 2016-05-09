@@ -1,7 +1,9 @@
 package org.projects.shopassist;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
+import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
@@ -16,69 +18,53 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.firebase.client.Firebase;
+import com.firebase.ui.FirebaseListAdapter;
+
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
-
-    ArrayAdapter<Product> adapter;
-    ListView listView;
-    ArrayList<Product> bag = new ArrayList<Product>();
-    User user;
     private static final String TAG = "org.projects.shopassist";
-
-    public ArrayAdapter getMyAdapter()
-    {
-        return adapter;
-    }
+    private Firebase mRef = new Firebase("https://shopassist.firebaseio.com/items");
+    FirebaseListAdapter<Product> adapter;
+    private ListView listView;
+    private User user;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Log.i(TAG, "onCreate");
-
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        Log.i(TAG, "onCreate");
 
-        //List View Setup
         listView = (ListView) findViewById(R.id.list);
-        adapter =  new ArrayAdapter<Product>(this,
-                android.R.layout.simple_list_item_checked,bag );
-        listView.setAdapter(adapter);
-        listView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
 
-        //Quantity Spinner Setup
         Spinner spinner = (Spinner) findViewById(R.id.quantitySpinner);
-        //Create an ArrayAdapter using the string array and a default spinner layout
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
                 R.array.quantity_array, android.R.layout.simple_spinner_item);
-        //Specify the layout to use when the list of choices appears
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        //Apply the adapter to the spinner
         spinner.setAdapter(adapter);
 
-        if (savedInstanceState!=null)
-        {
-            bag = savedInstanceState.getParcelableArrayList("bag");
-            user = savedInstanceState.getParcelable("user");
-
-        } else {
-            //Create an initial shopping list
-            Product p1 = new Product("Bananas", 4);
-            Product p2 = new Product("Milk", 2);
-            Product p3 = new Product("Cream cheese", 1);
-            bag.add(p1);
-            bag.add(p2);
-            bag.add(p3);
-            //Create an initial user
-            user = new User("Roxana", "password");
-        }
-
+        User user = new User("Roxana","roxana.jula@gmail.com");
     }
 
     protected void onStart() {
         super.onStart();
         Log.i(TAG, "onStart()");
+        adapter = new FirebaseListAdapter<Product>(
+                        this,
+                        Product.class,
+                        android.R.layout.simple_list_item_multiple_choice,
+                        mRef
+                ) {
+                    @Override
+                    protected void populateView(View view, Product product, int i) {
+                        TextView textView = (TextView) view.findViewById(android.R.id.text1);
+                        textView.setText(product.toString());
+                    }
+                };
+        listView.setAdapter(adapter);
     }
 
     protected void onResume() {
@@ -106,52 +92,53 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, "onDestroy()");
     }
 
-    //This method is called before our activity is destroyed
-    protected void onSaveInstanceState(Bundle savedInstanceState) {
-        //ALWAYS CALL THE SUPER METHOD
-        super.onSaveInstanceState(savedInstanceState);
-        Log.i(TAG, "onSaveInstanceState()");
-		/* Here we put code now to save the state */
-        savedInstanceState.putParcelableArrayList("bag", bag);
-        savedInstanceState.putParcelable("user", user);
-        savedInstanceState.putParcelable("checkedItems", new SparseBooleanArrayParcelable(listView.getCheckedItemPositions()));
-        }
-
-    //this is called when our activity is recreated, but
-    //AFTER our onCreate method has been called.
-    protected void onRestoreInstanceState(Bundle savedInstanceState) {
-        super.onRestoreInstanceState(savedInstanceState);
-        Log.i(TAG, "onRestoreInstanceState()");
-        listView = (ListView) findViewById(R.id.list);
-        adapter =  new ArrayAdapter<Product>(this,
-                android.R.layout.simple_list_item_checked, bag);
-        listView.setAdapter(adapter);
-        listView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
-        SparseBooleanArray checkedItemsToRestore = (SparseBooleanArray) savedInstanceState.getParcelable("checkedItems");
-        for (int i=0;i<checkedItemsToRestore.size();i++){
-            listView.setItemChecked(i,checkedItemsToRestore.valueAt(i));
-        }
-        adapter.notifyDataSetChanged();
-    }
-
     public void onClickAddToBag(View view) {
         EditText item= (EditText) findViewById(R.id.itemText);
         Spinner quantity=(Spinner) findViewById(R.id.quantitySpinner);
-        //EditText quantity= (EditText) findViewById(R.id.quantityText);
         Product newProduct= new Product(item.getText().toString(),Integer.parseInt(quantity.getSelectedItem().toString()));
-        bag.add(newProduct);
-        //quantity.setText(null);
-        String nameText = "You added " + newProduct.getItem() + " to your shopping list.";
-        Context context = getApplicationContext();
-        int duration = Toast.LENGTH_LONG;
-        Toast toast = Toast.makeText(context, nameText, duration);
-        toast.show();
+        mRef.push().setValue(newProduct);
+        final String productName = newProduct.getItem();
+        Snackbar snackbar = Snackbar
+                .make(view, productName + " was added to your list.", Snackbar.LENGTH_LONG)
+                .setAction("UNDO", new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        Firebase itemRef = adapter.getRef(listView.getCount()-1);
+                        itemRef.removeValue();
+                        Snackbar snackbar1 = Snackbar.make(view, productName + " was deleted from your list.", Snackbar.LENGTH_SHORT);
+                        snackbar1.show();
+                    }
+                });
+
+        snackbar.show();
         //Reset the Input Text and Spinner to initial values
         item.setText(null);
         quantity.setSelection(0);
-        getMyAdapter().notifyDataSetChanged();
     }
 
+    public void onClickDeleteChecked(View view) {
+        Context context = getApplicationContext();
+        int duration = Toast.LENGTH_LONG;
+        SparseBooleanArray checked = listView.getCheckedItemPositions();
+        int itemCount = listView.getCount();
+        if (checked.size()!=0) {
+            for (int i = itemCount - 1; i >= 0; i--) {
+                if (checked.get(i)) {
+                    Firebase itemRef = adapter.getRef(i);
+                    itemRef.removeValue();
+                }
+            }
+            String nameText = "Checked item(s) deleted.";
+            Toast toast = Toast.makeText(context, nameText, duration);
+            toast.show();
+        } else {
+            String nameText = "No items checked.";
+            Toast toast = Toast.makeText(context, nameText, duration);
+            toast.show();
+        }
+        checked.clear();
+        adapter.notifyDataSetChanged();
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -171,24 +158,42 @@ public class MainActivity extends AppCompatActivity {
             ConfirmationDialog dialog = new ConfirmationDialog() {
                 @Override
                 protected void positiveClick() {
-                    bag.clear();
+                    mRef.setValue(null);
                     String nameText = "Your list was cleared.";
                     Context context = getApplicationContext();
                     int duration = Toast.LENGTH_LONG;
                     Toast toast = Toast.makeText(context, nameText, duration);
                     toast.show();
-                    getMyAdapter().notifyDataSetChanged();
                 }
 
             };
             dialog.show(getFragmentManager(), "MyFragment");
         }
 
-        //noinspection SimplifiableIfStatement
         if (id == R.id.actionSettings) {
-            return true;
+            Intent intent = new Intent(this, SettingsActivity.class);
+            startActivityForResult(intent, 1);
+        }
+
+        if (id == R.id.action_share){
+            Intent intent = new Intent(Intent.ACTION_SEND);
+            intent.setType("text/plain");
+            intent.putExtra(Intent.EXTRA_TEXT, convertListToString());
+            startActivity(intent);
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    public String convertListToString()
+    {
+        String result = "Shopping List \n";
+        for (int i = 0; i<adapter.getCount();i++)
+        {
+            Product p = (Product) adapter.getItem(i);
+            result = result + "- " + p.toString()+"\n";
+        }
+        System.out.print(result);
+        return result;
     }
 }
